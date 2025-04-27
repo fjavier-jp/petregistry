@@ -11,6 +11,8 @@ import org.hopto.fjavierjp.petregistry.dto.PetCreateDTO;
 import org.hopto.fjavierjp.petregistry.dto.PetDTO;
 import org.hopto.fjavierjp.petregistry.exception.ResourceNotFoundException;
 import org.hopto.fjavierjp.petregistry.factory.StorageServiceFactory;
+import org.hopto.fjavierjp.petregistry.mapper.PetCreateMapper;
+import org.hopto.fjavierjp.petregistry.mapper.PetMapper;
 import org.hopto.fjavierjp.petregistry.model.Owner;
 import org.hopto.fjavierjp.petregistry.model.Pet;
 import org.hopto.fjavierjp.petregistry.repository.OwnerRepository;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +34,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import net.datafaker.Faker;
 
@@ -95,21 +97,27 @@ public class PetServiceImplTests
     public void testFindById()
     {
         long id = Long.parseLong(this.faker.numerify("#".repeat(13)));
+        String fileUrl = this.faker.file().fileName();
         Pet pet = new Pet.Builder()
             .withId(id)
             .withName(this.faker.name().toString())
             .withSpecies(Pet.Species.getRandomSpecies())
+            .withPictureUrl(fileUrl)
             .withWeight((float) this.faker.number().randomDouble(2, 1, 100))
             .build();
 
         Mockito.when(this.repository.findById(id)).thenReturn(Optional.of(pet));
-        Optional<PetDTO> opt = this.service.findById(id);
+        try (MockedStatic<UrlGenerator> mockedUrlGenerator = Mockito.mockStatic(UrlGenerator.class))
+        {
+            mockedUrlGenerator.when(() -> UrlGenerator.generatePublicUrl(fileUrl)).thenReturn(fileUrl);
+            Optional<PetDTO> opt = this.service.findById(id);
 
-        assertTrue(opt.isPresent());
-        PetDTO petDto = opt.get();
-        assertTrue(petDto.getName() == pet.getName());
-        assertTrue(petDto.getSpecies() == pet.getSpecies().toString());
-        assertTrue(petDto.getWeight() == pet.getWeight());
+            assertTrue(opt.isPresent());
+            PetDTO petDto = opt.get();
+            assertTrue(petDto.getName() == pet.getName());
+            assertTrue(petDto.getSpecies() == pet.getSpecies().toString());
+            assertTrue(petDto.getWeight() == pet.getWeight());
+        }
     }
 
     @Test
@@ -173,10 +181,9 @@ public class PetServiceImplTests
         );
         Mockito.when(this.ownerRepository.findById(ownerId)).thenReturn(Optional.of(owner));
 
-        String originalFilename = this.faker.file().fileName().toString();
         String filename = this.faker.file().fileName();
         MockMultipartFile mockFile = new MockMultipartFile(
-            originalFilename,
+            this.faker.file().fileName().toString(),
             this.faker.file().fileName(),
             this.faker.file().mimeType(),
             this.faker.lordOfTheRings().toString().getBytes()
@@ -189,7 +196,7 @@ public class PetServiceImplTests
         Pet pet = new Pet.Builder()
             .withName(petName)
             .withSpecies(petSpecies)
-            .withPictureUrl(originalFilename)
+            .withPictureUrl(filename)
             .withOwner(owner)
             .build();
         PetCreateDTO petCreateDto = new PetCreateDTO.Builder()
@@ -199,16 +206,28 @@ public class PetServiceImplTests
             .withOwnerId(ownerId)
             .build();
 
-        String serverAddress = this.environment.getProperty("server.address");
-        String publicPictureUrl = serverAddress + this.storageServiceDirectory + filename;
-        Mockito.when(this.repository.save(Mockito.any(Pet.class))).thenReturn(pet);
-        Mockito.mockStatic(UrlGenerator.class);
-        Mockito.when(UrlGenerator.generatePublicUrl(Mockito.anyString(), Mockito.anyString())).thenReturn(publicPictureUrl);
-        PetDTO petDto = this.service.store(petCreateDto);
+        String publicPictureUrl = this.faker.file().fileName();
+        PetDTO fakePetDto = new PetDTO();
+        fakePetDto.setName(petName);
+        fakePetDto.setSpecies(petSpecies.toString());
+        fakePetDto.setPictureUrl(publicPictureUrl);
+        fakePetDto.setOwnerName(ownerName);
 
-        assertEquals(petDto.getName(), petName);
-        assertEquals(petDto.getSpecies(), petSpecies.toString());
-        assertEquals(petDto.getPictureUrl(), publicPictureUrl);
-        assertEquals(petDto.getOwnerName(), ownerName);
+        try (MockedStatic<PetCreateMapper> mockedPetCreateMapper = Mockito.mockStatic(PetCreateMapper.class))
+        {
+            mockedPetCreateMapper.when(() -> PetCreateMapper.toEntity(petCreateDto, owner, filename)).thenReturn(pet);
+            Mockito.when(this.repository.save(pet)).thenReturn(pet);
+
+            try (MockedStatic<PetMapper> mockedPetMapper = Mockito.mockStatic(PetMapper.class))
+            {
+                mockedPetMapper.when(() -> PetMapper.toDTO(pet)).thenReturn(fakePetDto);
+                PetDTO petDto = this.service.store(petCreateDto);
+        
+                assertEquals(petDto.getName(), petName);
+                assertEquals(petDto.getSpecies(), petSpecies.toString());
+                assertEquals(petDto.getPictureUrl(), publicPictureUrl);
+                assertEquals(petDto.getOwnerName(), ownerName);
+            }
+        }
     }
 }

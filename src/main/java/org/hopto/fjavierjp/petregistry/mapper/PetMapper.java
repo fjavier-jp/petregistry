@@ -5,15 +5,16 @@ import java.util.Date;
 import org.hopto.fjavierjp.petregistry.dto.PetDTO;
 import org.hopto.fjavierjp.petregistry.model.Owner;
 import org.hopto.fjavierjp.petregistry.model.Pet;
+import org.hopto.fjavierjp.petregistry.util.UrlGenerator;
 
 public class PetMapper
 {
-    public static PetDTO toDTO(Pet pet, String imagePublicUrl)
+    public static PetDTO toDTO(Pet pet)
     {
         PetDTO petDto = new PetDTO();
         petDto.setName(pet.getName());
         petDto.setSpecies(pet.getSpecies().toString());
-        petDto.setPictureUrl(imagePublicUrl);
+        petDto.setPictureUrl(UrlGenerator.generatePublicUrl(pet.getPictureUrl()));
 
         Date birthDate = pet.getBirthDate();
         if (birthDate != null)

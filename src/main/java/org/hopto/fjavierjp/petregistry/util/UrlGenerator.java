@@ -4,11 +4,10 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 public class UrlGenerator
 {
-    public static String generatePublicUrl(String basePath, String filename)
+    public static String generatePublicUrl(String relativePath)
     {
         return ServletUriComponentsBuilder.fromCurrentContextPath()
-            .path(basePath)
-            .path(filename)
+            .path(relativePath)
             .toUriString();
     }
 }

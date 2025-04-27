@@ -63,7 +63,7 @@ public class FileSystemStorageServiceTests
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "Test content".getBytes());
         String filename = this.service.store(file);
 
-        assertTrue(Files.list(this.service.getDirectory()).count() == 1);
+        assertTrue(Files.list(this.service.getAbsolutePath()).count() == 1);
 
         this.service.delete(filename);
     }
@@ -80,6 +80,6 @@ public class FileSystemStorageServiceTests
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "Test content".getBytes());
         this.service.delete(this.service.store(file));
 
-        assertEquals(Files.list(this.service.getDirectory()).count(), 0);
+        assertEquals(Files.list(this.service.getAbsolutePath()).count(), 0);
     }
 }

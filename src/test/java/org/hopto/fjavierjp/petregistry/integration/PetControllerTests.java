@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -34,6 +34,7 @@ import org.hopto.fjavierjp.petregistry.dto.PetDTO;
 import org.hopto.fjavierjp.petregistry.model.Pet;
 import org.hopto.fjavierjp.petregistry.repository.PetRepository;
 import org.hopto.fjavierjp.petregistry.service.PetService;
+import org.hopto.fjavierjp.petregistry.util.UrlGenerator;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -73,7 +74,7 @@ public class PetControllerTests
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.name").value(fakeName))
             .andExpect(jsonPath("$.species").value(fakeSpecies.toString()))
-            .andExpect(jsonPath("$.pictureUrl").value("uploads/images/pets/" + fakeFilename));
+            .andExpect(jsonPath("$.pictureUrl").value(UrlGenerator.generatePublicUrl(fakeFilename)));
     }
 
     @Test
@@ -149,7 +150,7 @@ public class PetControllerTests
                     .file(mockFile)
                     .param("name", this.faker.name().toString())
                     .param("species", Pet.Species.getRandomSpecies().toString())
-                    .param("birthDate", this.faker.date().future(1, TimeUnit.DAYS).toString().substring(0, 10))
+                    .param("birthDate", this.faker.date().future(2, 1, TimeUnit.DAYS, "yyyy-MM-dd"))
                     .contentType(MediaType.MULTIPART_FORM_DATA)
             )
             .andExpect(status().isBadRequest());
@@ -222,6 +223,8 @@ public class PetControllerTests
 
         // Cleaning the test.
         String[] urlParts = petPictureUrl.split("/");
-        this.service.getStorageService().delete(urlParts[urlParts.length - 1]);
+        String filename = urlParts[urlParts.length - 1];
+        Path absolutePath = this.service.getStorageService().getAbsolutePath();
+        this.service.getStorageService().delete(absolutePath.resolve(filename).toString());
     }
 }

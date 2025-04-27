@@ -19,18 +19,21 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class FileSystemStorageService implements StorageService
 {
-    private final Path directory;
+    private final Path root;
+    private final Path absolutePath;
+    private final String relativeDirectory;
 
-    public FileSystemStorageService(@Value("${storage.location:uploads/}") String directory)
+    public FileSystemStorageService(@Value("${storage.location:uploads/}") String relativeDirectory)
     {
+        this.relativeDirectory = relativeDirectory;
         try
         {
             // This a dynamic way to get the resource folder.
-            Path resourcePath = Paths.get(getClass().getClassLoader().getResource("").toURI());
-            this.directory = resourcePath.resolve("static").resolve(directory);
+            this.root = Paths.get(getClass().getClassLoader().getResource("").toURI()).resolve("static");
+            this.absolutePath = this.root.resolve(relativeDirectory);
             log.info("Uploads path set");
 
-            Files.createDirectories(this.directory);
+            Files.createDirectories(this.absolutePath);
             log.info("Directory created");
         }
         catch (URISyntaxException exception)
@@ -43,9 +46,14 @@ public class FileSystemStorageService implements StorageService
         }
     }
 
-    public Path getDirectory()
+    public Path getAbsolutePath()
     {
-        return this.directory;
+        return this.absolutePath;
+    }
+
+    public String getRelativeDirectory()
+    {
+        return this.relativeDirectory;
     }
 
     @Override
@@ -71,7 +79,7 @@ public class FileSystemStorageService implements StorageService
         String extension = originalFilename.substring(dotIndex);
         String uuidFilename = UUID.randomUUID().toString();
         String hashedFilename = uuidFilename + extension;
-        Path destinationFile = this.directory.resolve(hashedFilename).normalize().toAbsolutePath();
+        Path destinationFile = this.absolutePath.resolve(hashedFilename).normalize().toAbsolutePath();
 
         try
         {
@@ -82,15 +90,15 @@ public class FileSystemStorageService implements StorageService
             throw new StorageException("Failed to store file", exception);
         }
 
-        return hashedFilename;
+        return this.relativeDirectory + hashedFilename;
     }
 
     @Override
-    public void delete(String filename) throws StorageException
+    public void delete(String relativePath) throws StorageException
     {
         try 
         {
-            Files.delete(directory.resolve(filename));
+            Files.delete(root.resolve(relativePath));
         }
         catch (IOException exception)
         {
@@ -103,7 +111,7 @@ public class FileSystemStorageService implements StorageService
     {
         try
         {
-            FileSystemUtils.deleteRecursively(directory);
+            FileSystemUtils.deleteRecursively(absolutePath);
             log.info("Directory recursively deleted");
         }
         catch (IOException exception)
@@ -117,7 +125,7 @@ public class FileSystemStorageService implements StorageService
     {
         try
         {
-            Files.createDirectories(this.directory);
+            Files.createDirectories(this.absolutePath);
         }
         catch (IOException exception)
         {

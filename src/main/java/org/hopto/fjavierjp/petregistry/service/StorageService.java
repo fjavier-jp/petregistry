@@ -1,5 +1,7 @@
 package org.hopto.fjavierjp.petregistry.service;
 
+import java.nio.file.Path;
+
 import org.hopto.fjavierjp.petregistry.exception.StorageException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,4 +32,10 @@ public interface StorageService
      * @return void
      */
     public void reinit() throws StorageException;
+
+    /**
+     * Returns storage service absolute path to its images location.
+     * @return
+     */
+    public Path getAbsolutePath();
 }
